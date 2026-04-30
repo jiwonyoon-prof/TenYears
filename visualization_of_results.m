@@ -1,4 +1,7 @@
 function visualization_of_results(experimentType)
+clc;
+close all;
+
 
 switch experimentType
     case 1
@@ -7,7 +10,54 @@ switch experimentType
         compare_TopK_with_varying_topK_and_qs();
     case 3
         compare_betamax_with_q();
+    case 4
+        compare_Sq();
 end
+
+function compare_Sq()
+
+setup.N = 5; % this is for the dimension of secret
+setup.K = setup.N+2; % k dimension for A ==> k*n
+setup.multipleTopK = [1000];
+setup.q = 3329;
+setup.mu = 0;%(setup.q-1)/2;
+setup.sigma = 1;
+setup.small_val= 10^(-10);
+setup.alpha = 2*setup.sigma;
+setup.p = 0.01; % Pr(collision=yes);
+
+FullPrimes = [5, 11, 29, 59, 97, 149, 199, 251, 307, 349, 409, 499, 557, 599, 647, 701, 751, 797, 853, 907, 947, 997];
+setup.Primes = FullPrimes;
+Ind = find(setup.Primes>setup.N*2);
+
+setup.Primes = setup.Primes(Ind(1):end);
+
+load(['./results/result_TopK(n=', num2str(setup.N), ', k=', num2str(setup.K), ').mat']);
+
+figure(1); clf;
+fSize = 22;     
+labelSize = 28; 
+
+set(gca, 'FontSize', fSize, 'LineWidth', 1.5, 'TickLabelInterpreter', 'latex'); 
+
+plot(elapsedTimes(:, 2), elapsedTimes(:, 5), 'ko', 'MarkerSize', 8, 'LineWidth', 1.5); hold on;
+
+plot([setup.Primes(1), setup.Primes(end)], [setup.q, setup.q], 'LineWidth', 2.5, 'LineStyle', '-'); hold on;
+plot([setup.Primes(1), setup.Primes(end)], [(2*setup.alpha+1)^setup.N, (2*setup.alpha+1)^setup.N], 'LineWidth', 2.5, 'LineStyle', '--');
+grid on;
+
+xlabel('$q_s$', 'Interpreter', 'latex', 'FontSize', labelSize);
+ylabel('$|S_{q_s}|$', 'Interpreter', 'latex', 'FontSize', labelSize);
+
+title_str = sprintf('$q=%d, k=%d, n=%d, Top K=%d$', setup.q, setup.K, setup.N, setup.multipleTopK(1));
+title(title_str, 'Interpreter', 'latex', 'FontSize', fSize + 6);
+
+lgd = legend('K-BEKEM$q_s$', ['q=', num2str(setup.q)], ['$(2\alpha+1)^n$=', num2str((2*setup.alpha+1)^setup.N)]);
+set(lgd, 'Interpreter', 'latex', 'FontSize', fSize - 2, 'Location', 'best');
+
+fprintf('k=%d, n=%d, q=%d, \alpha=%f\n', setup.K, setup.N, setup.q, setup.alpha);
+
+saveas(gcf,['./results/Sqs_for_topK(n=', num2str(setup.N),', q=', num2str(setup.q), '.png']);
 
 
 

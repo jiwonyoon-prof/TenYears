@@ -9,7 +9,8 @@ rng('default');
 
 setup= dosetup();
 
-
+global debug;
+debug=1; 
 
 %Generate LWE samples
 [cs, sk, A, es] = sample_from_LWE(setup);
@@ -27,8 +28,8 @@ end
 sk, es
 gt_es = es; % only for simulation for comparing with the ground truth....
 
-debugging = false;
-elapsedTimes = zeros(length(setup.multipleTopK)*length(setup.Primes), 4);
+elapsedTimes = zeros(length(setup.multipleTopK)*length(setup.Primes), 5);
+
 for j=1:length(setup.multipleTopK)
     setup.TopK = setup.multipleTopK(j);
     fprintf('\n\n Top K (=%d) is selected.\n', setup.TopK);
@@ -36,14 +37,14 @@ for j=1:length(setup.multipleTopK)
         qs = setup.Primes(i);
         fprintf('The used q_s is %d\n', qs);
         timePoint = cputime;
-        [hat_es, isSolved, ws_mod_qs] = Solve_LWE_Search(setup, cs, A, qs);
-        elapsedTimes((j-1)*length(setup.Primes)+i, :) = [setup.TopK, qs, cputime-timePoint, isSolved];
-
+        [hat_es, isSolved, ws_mod_qs, nPaths] = Solve_LWE_Search(setup, cs, A, qs);
+        elapsedTimes((j-1)*length(setup.Primes)+i, :) = [setup.TopK, qs, cputime-timePoint, isSolved, nPaths];
+        % all_nPaths(j, i)=nPaths;
         check_qs(setup.q, qs, ws_mod_qs)
     end
 end
 elapsedTimes
-
+% all_nPaths
 
 if ~isfolder('./results')
     mkdir('./results');
@@ -54,7 +55,7 @@ save(['./results/result_TopK(n=', num2str(setup.N), ', k=', num2str(setup.K), ')
 visualization_of_results(1);
 visualization_of_results(2);
 visualization_of_results(3);
-
+visualization_of_results(4);
 
 
 function check_qs(q, qs, ws_mod_qs)
@@ -69,12 +70,13 @@ end
 
 
 
-function [hat_es, isSolved, ws_mod_qs] = Solve_LWE_Search(setup, cs, A, qs)
-
+function [hat_es, isSolved, ws_mod_qs, nPaths] = Solve_LWE_Search(setup, cs, A, qs)
+global debug;
 K = setup.K;
 N = setup.N;
 
 hat_es = zeros(K, 1)+999;
+nPaths = 0;
 
 S = [];
 isSolved = false;
@@ -110,7 +112,6 @@ for r=0:r_max
     b_1_mod_qs_plus_rq_with_fixed_r = mod(hat_b+r*setup.q, qs);
     f_max_with_r = ceil( (ceil(2*setup.alpha) *sum(ws_mod_qs) - b_1_mod_qs_plus_rq_with_fixed_r)/qs );
     for f=0:f_max_with_r
-
         beta = b_1_mod_qs_plus_rq_with_fixed_r + f*qs;
         if beta>beta_max
             % disp('beta cannot be larger than beta_{max}.');
@@ -132,6 +133,7 @@ for r=0:r_max
         end
 
         nTrajs = size(Trajs, 2);
+        nPaths = nPaths + nTrajs;
 
         hat_ts_rears=mod(repmat(hat_bs, 1, nTrajs) - D*Trajs(1:N, :), setup.q);
         temp_ts_rears = allow_pm(hat_ts_rears, setup.q);
@@ -142,7 +144,9 @@ for r=0:r_max
             hat_ts(N+1:K) = hat_ts_rears(:, ID4es(1));
             hat_es = hat_ts - setup.alpha*ones(K, 1);
             isSolved = true;
-            return;
+            if debug==0
+                return; % If debug ==0, finish the code just after finding a solution. Otherwise, it runs all samples. 
+            end
         end
     end
 end
